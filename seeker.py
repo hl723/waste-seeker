@@ -213,16 +213,21 @@ def parse_data(data, limit):
             curr_id, arr_num = jobid_raw[0], None
 
 
-        if check_state(line[1]):
-            prev_id = curr_id
-            continue
+        # if check_state(line[1]):
+        #     prev_id = curr_id
+        #     continue
 
-        if ((curr_id != prev_id) and (prev_id != None)):
+        if (((curr_id != prev_id) or check_state(line[1])) and (prev_id != None)):
             stat = parse_stats(data[start:i])
 
             if wasteful(stat, limit):
                 groups = parse_groups(groups, data[start], prev_id)
                 stats = add_stats(stats, prev_id, stat)
+                # l = data[start].split("|")
+                # if l[2] and l[2] == "crr49":
+                #     print("start: ", data[start])
+                #     for a in data[start:i]:
+                #         print(a)
 
             isArray = tmpisArray
             start = i
@@ -373,7 +378,7 @@ if __name__ == '__main__':
     if DEBUG:
         parser.add_argument("file")
 
-    parser.add_argument("-l", "--limit", type=int, action="store", dest="limit", help="set threshold limit")
+    parser.add_argument("-l", "--limit", type=int, action="store", dest="limit", help="set threshold limit (percentage [0-100]")
     parser.add_argument("-s", "--sort", action="store_true", default=False, dest="sort", help="toggle between sorting by users to group")
     parser.add_argument("-g", "--group", action="store", dest="group", help="show wasteful jobs for a specific group")
     parser.add_argument("-u", "--user", action="store", dest="user", help="show wasteful jobs for a specific user (enter netid)")
