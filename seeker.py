@@ -2,8 +2,10 @@
 # coding: utf-8
 
 import argparse
+import datetime 
 import subprocess
 import sys
+import textwrap
 
 DEBUG = False
 
@@ -99,8 +101,8 @@ def get_percentage(num):
     return min(round(num * 100, 2), 100)
 
 
-def check_state(state):
-    return (state != "COMPLETED")
+# def check_state(state):
+#     return (state != "COMPLETED")
 
 
 def parse_groups(groups, line, jobid):
@@ -121,9 +123,14 @@ def parse_groups(groups, line, jobid):
     return groups
 
 
-def wasteful(stats, limit=50):
-    for eff in stats:
-        if eff != None and eff < limit:
+def wasteful(stats, limits):
+    # for eff in stats:
+    #     if eff != None and eff < limit:
+    #         return True
+    # return False
+
+    for stat, limit in zip(stats, limits):
+        if stat != None and stat < limit:
             return True
     return False
 
@@ -175,9 +182,14 @@ def query_sacct():
     else:
         # get sacct output
         # took out Cluster, JobName, and ExitCode for now
+        start_date = datetime.date.today().strftime("%m%d%y")
+        end_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime("%m%d%y")
+
+
         query = (
-                "sacct -anP --format=JobID,State,User,Group,"
-                "ReqMem,MaxRSS,Timelimit,Elapsed,ReqCPUS,TotalCPU"
+                "sacct -anP -s CD -S %s -E %s --format=JobID,State,User,Group,"
+                "ReqMem,MaxRSS,Timelimit,Elapsed,ReqCPUS,TotalCPU" 
+                % (start_date, end_date)
             )
 
         # catch no response from sacct error
@@ -217,7 +229,7 @@ def parse_data(data, limit):
         #     prev_id = curr_id
         #     continue
 
-        if (((curr_id != prev_id) or check_state(line[1])) and (prev_id != None)):
+        if ((curr_id != prev_id) and (prev_id != None)):
             stat = parse_stats(data[start:i])
 
             if wasteful(stat, limit):
@@ -324,7 +336,13 @@ def get_group(groups, stats, group_name):
             return
     print("No jobs to show for group " + str(group_name))
 
-def main(limit, sort, group, user):
+def main(limit_list, sort, group, user):
+    # check threshold bounds
+    for limit in limit_list:
+        if (limit < 0) or (limit > 100):
+            print("Invalid limit given.")
+            return 
+
     # call sacct
     raw_data = query_sacct()
 
@@ -333,13 +351,11 @@ def main(limit, sort, group, user):
         print("No data available for analysis.")
         return 
 
-    if limit == None:
-        limit = 50
-    elif (limit < 0) or (limit > 100):
-        print("Invalid limit given.")
+    # parse the data 
+    groups, stats = parse_data(raw_data, limit_list)
 
-    groups, stats = parse_data(raw_data, limit)
 
+    # call appropriate function to print stats
     if group or user:
         if group:
             get_group(groups, stats, group)
@@ -373,15 +389,44 @@ def main(limit, sort, group, user):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    desc = (
+    """
+    waste-seeker
+    https://github.com/ycrc/waste-seeker
+    ---------------
+    An internal tool that can be used to highlight inefficient resource usage by scanning through all jobs within the past day. 
+
+    To use waste-seeker, simply run "waste-seeker" and it will default to displaying the numbers of inefficient jobs sorted by user. 
+
+    To explore more options, run "waste-seeker -h".
+
+    For debugging, you can also use waste-seeker on a text file containing the results of the command:
+        sacct -anP -s CD -S <start_date> -E <end_date> 
+        --format=JobID,State,User,Group,ReqMem,MaxRSS,Timelimit,Elapsed,ReqCPUS,TotalCPU" 
+    where date formats are specified within the sacct manual.
+    Note: DEBUG flag must be set to True for debugging mode. 
+    
+    Default theshold limit is set to 50%. Waste-seeker accepts any float in the range [0-100].
+
+    To specify a user, please use their netid. 
+    -----------------
+    """
+    )
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent(desc),
+    )
 
     if DEBUG:
         parser.add_argument("file")
 
-    parser.add_argument("-l", "--limit", type=int, action="store", dest="limit", help="set threshold limit (percentage [0-100]")
+    parser.add_argument("-m", type=float, default=50, action="store", dest="mem", help="set memory threshold limit (percentage [0-100]")
+    parser.add_argument("-t", type=float, default=50, action="store", dest="time", help="set time threshold limit (percentage [0-100]")
+    parser.add_argument("-c", type=float, default=50, action="store", dest="cpu", help="set cpu threshold limit (percentage [0-100]")
     parser.add_argument("-s", "--sort", action="store_true", default=False, dest="sort", help="toggle between sorting by users to group")
     parser.add_argument("-g", "--group", action="store", dest="group", help="show wasteful jobs for a specific group")
     parser.add_argument("-u", "--user", action="store", dest="user", help="show wasteful jobs for a specific user (enter netid)")
     
     args = parser.parse_args()
-    main(args.limit, args.sort, args.group, args.user)
+    main([args.mem, args.time, args.cpu], args.sort, args.group, args.user)
