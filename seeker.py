@@ -101,10 +101,6 @@ def get_percentage(num):
     return min(round(num * 100, 2), 100)
 
 
-# def check_state(state):
-#     return (state != "COMPLETED")
-
-
 def parse_groups(groups, line, jobid):
     line = line.split("|")
 
@@ -225,21 +221,12 @@ def parse_data(data, limit):
             curr_id, arr_num = jobid_raw[0], None
 
 
-        # if check_state(line[1]):
-        #     prev_id = curr_id
-        #     continue
-
         if ((curr_id != prev_id) and (prev_id != None)):
             stat = parse_stats(data[start:i])
 
             if wasteful(stat, limit):
                 groups = parse_groups(groups, data[start], prev_id)
                 stats = add_stats(stats, prev_id, stat)
-                # l = data[start].split("|")
-                # if l[2] and l[2] == "crr49":
-                #     print("start: ", data[start])
-                #     for a in data[start:i]:
-                #         print(a)
 
             isArray = tmpisArray
             start = i
@@ -251,16 +238,11 @@ def parse_data(data, limit):
                 groups = parse_groups(groups, data[start], curr_id)
                 stats = add_stats(stats, curr_id, stat)
             
-
         tmpisArray = False
         prev_id = curr_id
 
     return [groups, stats]
    
-# def print_dict(d):
-#     for k,i in d.items():
-#         print(k, i)
-
 
 def sort_groups(groups, stats):
     sums = {}
@@ -365,27 +347,6 @@ def main(limit_list, sort, group, user):
         print_list(sort_groups(groups, stats))
     else:
         print_list(sort_users(groups, stats))
-
-
-    # print_dict(groups)
-    # print_dict(stats)
-
-    # for k,v in groups.items():
-    #     print(k)
-    #     for a,b in v.items():
-    #         print(a, len(b))
-
-    # print sorted by groups
-    # print_list(sort_groups(groups, stats))
-
-    # print sorted by users
-    # print_list(sort_users(groups, stats))
-    
-    # get_user(groups, stats, "st474")
-    # get_group(groups, stats, "zhao")
-    # get_user(groups, stats, "none")
-    # get_group(groups, stats, "none")
-
 
 
 if __name__ == '__main__':
